@@ -191,9 +191,9 @@ type
   TGlyph = array[0..6] of Byte;
 
 const
-  GlyphChars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ:, ';
+  GlyphChars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ:, /';
   { Seven rows, five columns, '1' is ink. Original face, not Chicago. }
-  FontSrc: array[0..38] of string = (
+  FontSrc: array[0..39] of string = (
     '01110'+'10001'+'10001'+'10001'+'10001'+'10001'+'01110', { 0 }
     '00100'+'01100'+'00100'+'00100'+'00100'+'00100'+'01110', { 1 }
     '01110'+'10001'+'00001'+'00010'+'00100'+'01000'+'11111', { 2 }
@@ -232,11 +232,12 @@ const
     '11111'+'00001'+'00010'+'00100'+'01000'+'10000'+'11111', { Z }
     '00000'+'00100'+'00100'+'00000'+'00100'+'00100'+'00000', { : }
     '00000'+'00000'+'00000'+'00110'+'00100'+'01000'+'00000', { , }
-    '00000'+'00000'+'00000'+'00000'+'00000'+'00000'+'00000'  { space }
+    '00000'+'00000'+'00000'+'00000'+'00000'+'00000'+'00000', { space }
+    '00001'+'00010'+'00010'+'00100'+'00100'+'01000'+'10000'  { / }
   );
 
 var
-  GlyphCache: array[0..38] of TGlyph;
+  GlyphCache: array[0..39] of TGlyph;
   GlyphReady: Boolean;
 
 function DecodeGlyph(const S: string): TGlyph;
