@@ -86,6 +86,7 @@ procedure CopyBGRA(Buf: TPixelBuffer; Dest: PByte);
 { Ink in the pixel-face date slash. Zero means the mark is missing or
   slopes the wrong way. The Pi draws this stroke; the Mac uses Geneva. }
 function PixelDateSlashInk: Integer;
+function PixelCharInk(Ch: Char): Integer;
 
 implementation
 
@@ -634,11 +635,19 @@ begin
   end;
 end;
 
+procedure DrawPixelSlash(P: TPainter; X, Y, FontScale: Integer); forward;
+
 procedure TPainter.Glyph(X, Y: Integer; Ch: Char; FontScale: Integer; Ink: Byte);
 var
   Index, Row, Col: Integer;
   G: TGlyph;
 begin
+  { '/' is not a digit. Paint it here so a failed lookup cannot leave a hole. }
+  if (Ch = '/') and (Ink = 0) then
+  begin
+    DrawPixelSlash(Self, X, Y, FontScale);
+    Exit;
+  end;
   EnsureFont;
   Index := GlyphIndex(Ch);
   if Index < 0 then
@@ -1085,6 +1094,37 @@ begin
       end;
     if (N >= 10) and (TopX > BotX) then
       Result := N;
+  finally
+    P.Free;
+    Buf.Free;
+  end;
+end;
+
+function PixelCharInk(Ch: Char): Integer;
+var
+  Buf: TPixelBuffer;
+  P: TPainter;
+  I, N: Integer;
+  Pix: PByte;
+  S: string;
+begin
+  Buf := TPixelBuffer.Create(16, 16);
+  P := TPainter.Create;
+  try
+    Buf.Clear(255, 255, 255, 255);
+    P.Buf := Buf;
+    P.Scale := 1;
+    S := Ch;
+    P.Text(1, 1, S, 1, 0);
+    N := 0;
+    Pix := Buf.Ptr;
+    for I := 0 to Buf.Width * Buf.Height - 1 do
+    begin
+      if Pix[0] < 16 then
+        Inc(N);
+      Inc(Pix, 4);
+    end;
+    Result := N;
   finally
     P.Free;
     Buf.Free;

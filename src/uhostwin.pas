@@ -34,6 +34,15 @@ var
   PopupMenu: HMENU;
   LastX, LastY: Integer;
 
+function WinRect(L, T, R, B: Longint): TRect;
+begin
+  { Windows.Rect is the record type, not Delphi's Rect() helper. }
+  Result.Left := L;
+  Result.Top := T;
+  Result.Right := R;
+  Result.Bottom := B;
+end;
+
 procedure Present(Wnd: HWND);
 begin
   Controller.Render;
@@ -77,11 +86,11 @@ begin
   { State change: lever. Rebuild the buffer, then the window, top-left fixed. }
   Controller.ApplyChrome;
   Style := GetWindowLong(Wnd, GWL_STYLE);
-  Outer := Rect(0, 0, Controller.ContentWidth, Controller.ContentHeight);
-  AdjustWindowRect(Outer, Style, False);
+  Outer := WinRect(0, 0, Controller.ContentWidth, Controller.ContentHeight);
+  AdjustWindowRect(@Outer, Style, False);
   NewW := Outer.Right - Outer.Left;
   NewH := Outer.Bottom - Outer.Top;
-  GetWindowRect(Wnd, Current);
+  GetWindowRect(Wnd, @Current);
   MoveWindow(Wnd, Current.Left, Current.Top, NewW, NewH, True);
   Present(Wnd);
 end;
@@ -251,12 +260,12 @@ begin
   RegisterClass(WC);
 
   Style := WS_POPUP;
-  Wr := Rect(0, 0, Controller.ContentWidth, Controller.ContentHeight);
-  AdjustWindowRect(Wr, Style, False);
+  Wr := WinRect(0, 0, Controller.ContentWidth, Controller.ContentHeight);
+  AdjustWindowRect(@Wr, Style, False);
   WinW := Wr.Right - Wr.Left;
   WinH := Wr.Bottom - Wr.Top;
 
-  Work := Rect(0, 0, 800, 600);
+  Work := WinRect(0, 0, 800, 600);
   SystemParametersInfo(SPI_GETWORKAREA, 0, @Work, 0);
   { Upper right of the work area, under the taskbar's opposite corner. }
   Left := Work.Right - WinW - 16;

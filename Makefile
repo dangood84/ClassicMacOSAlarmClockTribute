@@ -37,6 +37,7 @@ run: app
 
 linux: $(BUILD)
 	$(FPC) $(FLAGS) $(UNITS) -o$(BUILD)/alarmclock $(SRC)/alarm.pas
+	cp $(BUILD)/alarmclock executable
 
 windows: $(BUILD)
 	$(FPC) $(FLAGS) $(UNITS) -o$(BUILD)/AlarmClock.exe $(SRC)/alarm.pas

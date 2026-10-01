@@ -288,6 +288,10 @@ begin
       if Black < 10 then
         Fail('the date slash on the pixel face');
       WriteLn('ok   pixel date slash (', Black, ')');
+      Black := PixelCharInk('/');
+      if Black < 10 then
+        Fail('the slash character on the pixel face');
+      WriteLn('ok   slash character (', Black, ')');
     finally
       M.Free;
     end;
