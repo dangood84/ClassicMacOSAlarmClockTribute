@@ -19,7 +19,8 @@ unit ualarmrender;
   On a Mac the time and the date are bold Geneva, centered. Geneva has
   no bold face, so ualarmtext draws it twice, one pixel apart. The 5×7
   glyphs remain for hosts that do not have that font. They are not
-  Chicago, and not a copy of the desk accessory's bitmaps.
+  Chicago, and not a copy of the desk accessory's bitmaps. Date slashes
+  on that face are a stroke in the reserved gap, not a glyph lookup.
 
   Hosts only upload the buffer. Logical pixels are multiplied by
   PixelScale so a retina Mac stays crisp and a 1× Catalina or Pi display
@@ -82,6 +83,9 @@ function BuildLayout(const V: TAlarmView): TAlarmLayout;
 function HitTest(const Lay: TAlarmLayout; X, Y: Integer): THitKind;
 procedure RenderAlarm(Buf: TPixelBuffer; const V: TAlarmView; PixelScale: Integer);
 procedure CopyBGRA(Buf: TPixelBuffer; Dest: PByte);
+{ Ink in the pixel-face date slash. Zero means the mark is missing or
+  slopes the wrong way. The Pi draws this stroke; the Mac uses Geneva. }
+function PixelDateSlashInk: Integer;
 
 implementation
 
@@ -997,6 +1001,96 @@ begin
   {$ENDIF}
 end;
 
+procedure DrawPixelSlash(P: TPainter; X, Y, FontScale: Integer);
+const
+  { Two pixels thick, same box as a 5×7 glyph. Top at the right. }
+  Mark: array[0..6] of string = (
+    '...##',
+    '...##',
+    '..##.',
+    '..##.',
+    '.##..',
+    '.##..',
+    '##...'
+  );
+var
+  Row, Col, DX, DY: Integer;
+  Line: string;
+begin
+  if FontScale < 1 then
+    FontScale := 1;
+  for Row := 0 to High(Mark) do
+  begin
+    Line := Mark[Row];
+    for Col := 1 to Length(Line) do
+      if Line[Col] = '#' then
+        for DY := 0 to FontScale - 1 do
+          for DX := 0 to FontScale - 1 do
+            P.Fill(X + (Col - 1) * FontScale + DX,
+              Y + Row * FontScale + DY, 1, 1, 0, 0, 0);
+  end;
+end;
+
+procedure DrawDateSep(Buf: TPixelBuffer; P: TPainter; X, Y, Pt: Integer);
+{$IFNDEF DARWIN}
+var
+  Scale: Integer;
+{$ENDIF}
+begin
+  {$IFDEF DARWIN}
+  DrawFace(Buf, P, X, Y, '/', Pt, False, True);
+  {$ELSE}
+  { Width comes from the string, so a missing glyph still left a gap.
+    Paint the slash into that gap. Drawn after the digits so a part
+    fill cannot cover it. }
+  if Buf = nil then
+    Exit;
+  Scale := Pt div 7;
+  if Scale < 1 then
+    Scale := 1;
+  DrawPixelSlash(P, X, Y, Scale);
+  {$ENDIF}
+end;
+
+function PixelDateSlashInk: Integer;
+var
+  Buf: TPixelBuffer;
+  P: TPainter;
+  X, Y, TopX, BotX, N: Integer;
+  Pix: PByte;
+begin
+  Result := 0;
+  Buf := TPixelBuffer.Create(8, 8);
+  P := TPainter.Create;
+  try
+    Buf.Clear(255, 255, 255, 255);
+    P.Buf := Buf;
+    P.Scale := 1;
+    DrawPixelSlash(P, 0, 0, 1);
+    N := 0;
+    TopX := -1;
+    BotX := -1;
+    for Y := 0 to 6 do
+      for X := 0 to 4 do
+      begin
+        Pix := Buf.Ptr + (Y * Buf.Width + X) * 4;
+        if Pix[0] < 16 then
+        begin
+          Inc(N);
+          if (Y <= 1) and (X > TopX) then
+            TopX := X;
+          if (Y >= 5) and ((BotX < 0) or (X < BotX)) then
+            BotX := X;
+        end;
+      end;
+    if (N >= 10) and (TopX > BotX) then
+      Result := N;
+  finally
+    P.Free;
+    Buf.Free;
+  end;
+end;
+
 procedure DrawPart(Buf: TPixelBuffer; P: TPainter; const R: TRectI; const Text: string;
   Invert: Boolean; Pt, RowHeight: Integer);
 var
@@ -1107,12 +1201,13 @@ begin
     begin
       DrawPart(Buf, P, Lay.DateMonth, Shown(V, hitDateMonth, IntToStr(V.Month)),
         Lay.Active = hitDateMonth, PanelPt, ValueH);
-      DrawFace(Buf, P, Lay.DateMonth.R, GY, '/ ', PanelPt, False, True);
       DrawPart(Buf, P, Lay.DateDay, Shown(V, hitDateDay, IntToStr(V.Day)),
         Lay.Active = hitDateDay, PanelPt, ValueH);
-      DrawFace(Buf, P, Lay.DateDay.R, GY, '/', PanelPt, False, True);
       DrawPart(Buf, P, Lay.DateYear, Shown(V, hitDateYear, Year2(V.Year)),
         Lay.Active = hitDateYear, PanelPt, ValueH);
+      { After the digits, so the marks sit in the gaps instead of under them. }
+      DrawDateSep(Buf, P, Lay.DateMonth.R, GY, PanelPt);
+      DrawDateSep(Buf, P, Lay.DateDay.R, GY, PanelPt);
     end
     else if V.Row = rowTime then
     begin

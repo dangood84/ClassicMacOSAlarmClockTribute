@@ -284,6 +284,10 @@ begin
       if Black < 80 then
         Fail('compact frame looks blank');
       WriteLn('ok   compact frame has ink (', Black, ')');
+      Black := PixelDateSlashInk;
+      if Black < 10 then
+        Fail('the date slash on the pixel face');
+      WriteLn('ok   pixel date slash (', Black, ')');
     finally
       M.Free;
     end;
